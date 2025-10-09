@@ -192,6 +192,10 @@
                     <skipTests>false</skipTests>
                     <skip>false</skip>
                     <argLine>-Dfile.encoding=UTF-8</argLine>
+                    <groups>smtp</groups>
+                    <includes>
+                        <include>**/*Cases.java</include>
+                    </includes>
                 </configuration>
             </plugin>
 
