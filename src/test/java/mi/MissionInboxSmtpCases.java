@@ -2,21 +2,13 @@ package mi;
 
 import com.mimecast.robin.assertion.AssertException;
 import com.mimecast.robin.main.Client;
-import com.mimecast.robin.main.Foundation;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.naming.ConfigurationException;
 import java.io.IOException;
 
 @Tag("smtp")
 public class MissionInboxSmtpCases {
-
-    @BeforeAll
-    static void before() throws ConfigurationException {
-        Foundation.init("cfg/");
-    }
 
     @Test
     void submissionWithAuthentication() throws AssertException, IOException {
