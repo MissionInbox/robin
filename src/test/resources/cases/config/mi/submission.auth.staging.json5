@@ -1,0 +1,63 @@
+{
+  $schema: "/schema/case.schema.json",
+
+  // How many times to try and establish a connection to remote server. First counts.
+  retry: 2,
+
+  // Delay between tries.
+  delay: 5,
+
+  // EHLO to use.
+  ehlo: "transilvlad.net",
+
+  // SMTP server to connect to.
+  mx: [
+    "meadoworks.outboxment.com"
+  ],
+  port: 587,
+
+  // Authenticate user.
+  auth: true,
+  user: "apatsili@mail.finduxcam.com",
+  pass: "{$smtpAuthPassword}",
+
+  // Email envelopes.
+  envelopes: [
+    // Envelope one.
+    {
+      // Sender and recipients.
+      mail: "apatsili@mail.finduxcam.com",
+      rcpt: [
+        "hong@missioninbox.com"
+      ],
+
+      // Email eml file to transmit.
+      file: "src/test/resources/cases/sources/pangrams.eml",
+
+      // Assertions to run against the envelope.
+      assertions: {
+
+        // Protocol assertions.
+        // Check SMTP responses match regular expressions.
+        protocol: [
+          ["MAIL", "250 2.1.0 Ok"],
+          ["RCPT", "250 2.1.5 Ok"],
+          ["DATA", "^250 2.0.0 Ok: queued as"]
+        ]
+      }
+    }
+  ],
+
+  // Assertions to run against the connection.
+  assertions: {
+    // Protocol assertions.
+    // Check SMTP responses match regular expressions.
+    protocol: [
+      ["AUTH", "235 2.7.0 Authentication successful"],
+      ["EHLO", "^250-meadoworks.outboxment.com"],
+      ["SHLO", "250-AUTH PLAIN LOGIN"],
+      ["SMTP", "^220"],
+      ["QUIT"]
+    ]
+  }
+}
