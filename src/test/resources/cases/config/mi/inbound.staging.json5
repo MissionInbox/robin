@@ -8,21 +8,16 @@
   delay: 5,
 
   // Preconfigured route to use instead of MX and port.
-  route: "stgsub",
-
-  // Authenticate user.
-  auth: true,
-  user: "apatsili@mail.finduxcam.com",
-  pass: "{$smtpAuthPassword}",
+  route: "stg",
 
   // Email envelopes.
   envelopes: [
     // Envelope one.
     {
       // Sender and recipients.
-      mail: "apatsili@mail.finduxcam.com",
+      mail: "hong@missioninbox.com",
       rcpt: [
-        "hong@missioninbox.com"
+        "vlad@mail.missioninbox.tech"
       ],
 
       // Email eml file to transmit.
@@ -47,7 +42,6 @@
     // Protocol assertions.
     // Check SMTP responses match regular expressions.
     protocol: [
-      ["AUTH", "235 2.7.0 Authentication successful"],
       ["EHLO", "^250-meadoworks.outboxment.com"],
       ["SHLO", "250-AUTH PLAIN LOGIN"],
       ["SMTP", "^220"],

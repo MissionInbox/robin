@@ -15,4 +15,10 @@ public class MissionInboxSmtpCases {
         new Client()
                 .send("src/test/resources/cases/config/mi/submission.auth.staging.json5");
     }
+
+    //@Test
+    void inboundReceipt() throws AssertException, IOException {
+        new Client()
+                .send("src/test/resources/cases/config/mi/inbound.staging.json5");
+    }
 }

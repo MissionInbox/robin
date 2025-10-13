@@ -29,10 +29,10 @@
   ],
 
   // Default EHLO to use.
-  ehlo: "transilvlad.net",
+  ehlo: "missioninbox.tech",
 
   // Default sender and recipients.
-  mail: "robin@transilvlad.net",
+  mail: "robin@missioninbox.tech",
   rcpt: [
     "robin@example.com"
   ],
@@ -46,24 +46,14 @@
   // Predefined delivery routes to use instead of MX and port.
   routes: [
     {
-      name: "local",
-      mx: ["127.0.0.1"],
+      name: "stg",
+      mx: ["meadoworks.outboxment.com"],
       port: 25
     },
-
     {
-      name: "com",
-      mx: ["example.com"],
-      port: 25
-    },
-
-    {
-      name: "net",
-      mx: ["example.net"],
-      port: 465,
-      auth: true,
-      user: "tony@example.com",
-      pass: "giveHerTheRing"
+      name: "stgsub",
+      mx: ["meadoworks.outboxment.com"],
+      port: 587
     }
   ]
 }
