@@ -1,6 +1,6 @@
 {
   // Hostname to declare in welcome message.
-  hostname: "example.com",
+  hostname: "mail.missioninbox.tech",
 
   // Interface the server will bind too (default: ::).
   bind: "::",

@@ -29,7 +29,7 @@
   ],
 
   // Default EHLO to use.
-  ehlo: "missioninbox.tech",
+  ehlo: "mail.missioninbox.tech",
 
   // Default sender and recipients.
   mail: "robin@missioninbox.tech",
