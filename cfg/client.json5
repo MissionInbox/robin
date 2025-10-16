@@ -46,13 +46,23 @@
   // Predefined delivery routes to use instead of MX and port.
   routes: [
     {
+      name: "loc",
+      mx: ["localhost"],
+      port: 25
+    },
+    {
+      name: "locsub",
+      mx: ["localhost"],
+      port: 587
+    },
+    {
       name: "stg",
-      mx: ["meadoworks.outboxment.com"],
+      mx: ["mail.missioninbox.tech"],
       port: 25
     },
     {
       name: "stgsub",
-      mx: ["meadoworks.outboxment.com"],
+      mx: ["mail.missioninbox.tech"],
       port: 587
     }
   ]
