@@ -12,7 +12,7 @@
 
   // Authenticate user.
   auth: true,
-  user: "apatsili@mail.finduxcam.com",
+  user: "lin@beta.obmengine.com",
   pass: "{$smtpAuthPassword}",
 
   // Email envelopes.
@@ -20,9 +20,9 @@
     // Envelope one.
     {
       // Sender and recipients.
-      mail: "apatsili@mail.finduxcam.com",
+      mail: "lin@beta.obmengine.com",
       rcpt: [
-        "hong@missioninbox.com"
+        "transilvlad@gmail.com"
       ],
 
       // Email eml file to transmit.
@@ -48,7 +48,7 @@
     // Check SMTP responses match regular expressions.
     protocol: [
       ["AUTH", "235 2.7.0 Authentication successful"],
-      ["EHLO", "^250-meadoworks.outboxment.com"],
+      ["EHLO", "^250-mail.missioninbox.tech"],
       ["SHLO", "250-AUTH PLAIN LOGIN"],
       ["SMTP", "^220"],
       ["QUIT"]
