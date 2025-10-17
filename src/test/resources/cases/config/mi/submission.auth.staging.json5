@@ -22,7 +22,7 @@
       // Sender and recipients.
       mail: "lin@beta.obmengine.com",
       rcpt: [
-        "transilvlad@gmail.com"
+        "vlad@missioninbox.com"
       ],
 
       // Email eml file to transmit.
