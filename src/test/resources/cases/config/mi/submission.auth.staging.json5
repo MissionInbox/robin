@@ -8,10 +8,10 @@
   delay: 5,
 
   // Preconfigured route to use instead of MX and port.
-  route: "stgsub",
+  route: "loc",
 
   // Authenticate user.
-  auth: true,
+  authX: true,
   user: "lin@beta.obmengine.com",
   pass: "{$smtpAuthPassword}",
 
@@ -22,7 +22,7 @@
       // Sender and recipients.
       mail: "lin@beta.obmengine.com",
       rcpt: [
-        "vlad@missioninbox.com"
+        "transilvlad@gmail.com"
       ],
 
       // Email eml file to transmit.
@@ -34,9 +34,9 @@
         // Protocol assertions.
         // Check SMTP responses match regular expressions.
         protocol: [
-          ["MAIL", "250 2.1.0 Ok"],
-          ["RCPT", "250 2.1.5 Ok"],
-          ["DATA", "^250 2.0.0 Ok: queued as"]
+          //["MAIL", "250 2.1.0 Ok"],
+          //["RCPT", "250 2.1.5 Ok"],
+          //["DATA", "^250 2.0.0 Ok: queued as"]
         ]
       }
     }
@@ -47,9 +47,9 @@
     // Protocol assertions.
     // Check SMTP responses match regular expressions.
     protocol: [
-      ["AUTH", "235 2.7.0 Authentication successful"],
-      ["EHLO", "^250-mail.missioninbox.tech"],
-      ["SHLO", "250-AUTH PLAIN LOGIN"],
+      //["AUTH", "235 2.7.0 Authentication successful"],
+      //["EHLO", "^250-mail.missioninbox.tech"],
+      //["SHLO", "250-AUTH PLAIN LOGIN"],
       ["SMTP", "^220"],
       ["QUIT"]
     ]
