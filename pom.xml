@@ -15,6 +15,7 @@
         <javamail.version>1.6.2</javamail.version>
         <guava.version>33.5.0-jre</guava.version>
         <log4j.version>2.25.2</log4j.version>
+        <junit.version>6.0.0</junit.version>
         <jmh.version>1.37</jmh.version>
     </properties>
 
@@ -26,14 +27,6 @@
         </repository>
     </distributionManagement>
 
-    <repositories>
-        <repository>
-            <id>objectdb</id>
-            <name>ObjectDB Repository</name>
-            <url>https://m2.objectdb.com</url>
-        </repository>
-    </repositories>
-
     <dependencies>
         <dependency>
             <groupId>javax.mail</groupId>
@@ -42,19 +35,8 @@
         </dependency>
         <dependency>
             <groupId>com.sun.mail</groupId>
-            <artifactId>javax.mail</artifactId>
-            <version>${javamail.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.activation</groupId>
-                    <artifactId>activation</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.geronimo.javamail</groupId>
-            <artifactId>geronimo-javamail_1.6_mail</artifactId>
-            <version>1.0.1</version>
+            <artifactId>jakarta.mail</artifactId>
+            <version>2.0.2</version>
         </dependency>
 
         <dependency>
@@ -106,7 +88,7 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-jvm</artifactId>
-            <version>5.2.0</version>
+            <version>5.2.1</version>
         </dependency>
 
         <dependency>
@@ -116,9 +98,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.objectdb</groupId>
-            <artifactId>objectdb-jk</artifactId>
-            <version>2.9.4</version>
+            <groupId>org.mapdb</groupId>
+            <artifactId>mapdb</artifactId>
+            <version>3.1.0</version>
         </dependency>
 
         <dependency>
@@ -131,18 +113,45 @@
             <artifactId>log4j-core</artifactId>
             <version>${log4j.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>2.25.2</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <version>1.12.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-jmx</artifactId>
+            <version>1.12.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-graphite</artifactId>
+            <version>1.13.0</version>
+        </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.13.4</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>1.13.4</version>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -189,8 +198,6 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.4</version>
                 <configuration>
-                    <skipTests>false</skipTests>
-                    <skip>false</skip>
                     <argLine>-Dfile.encoding=UTF-8</argLine>
                     <groups>smtp</groups>
                     <includes>
@@ -250,8 +257,8 @@
                 <configuration>
                     <stylesheetfile>${basedir}/src/main/resources/javadoc.css</stylesheetfile>
                     <show>private</show>
-                    <nohelp>true</nohelp>
-                    <source>8</source>
+                    <quiet>true</quiet>
+                    <doclint>-missing</doclint>
                     <detectJavaApiLink>false</detectJavaApiLink>
                 </configuration>
                 <executions>

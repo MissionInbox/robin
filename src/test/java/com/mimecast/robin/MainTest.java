@@ -20,7 +20,7 @@ class MainTest {
         assertEquals("", logs.get(2));
         assertEquals("usage:   [--client] [--server]\n" +
                 "    --client   Run as client\n" +
-                "    --server   Run as server\n", logs.get(3));
+                "    --server   Run as server\n", logs.get(3).replaceAll("\r", ""));
         assertEquals("", logs.get(4));
     }
 
@@ -33,7 +33,7 @@ class MainTest {
         assertEquals("", logs.get(2));
         assertEquals("usage:   [--client] [--server]\n" +
                 "    --client   Run as client\n" +
-                "    --server   Run as server\n", logs.get(3));
+                "    --server   Run as server\n", logs.get(3).replaceAll("\r", ""));
         assertEquals("", logs.get(4));
     }
 
@@ -64,22 +64,22 @@ class MainTest {
         assertEquals("Config error: Config directory not found", logs.get(0));
         assertEquals(7, logs.size());
 
-        logs = MainMock.main(Arrays.asList("--client", "-f", "src/test/resources/lipsum.eml"));
+        logs = MainMock.main(Arrays.asList("--client", "-f", "src/test/resources/mime/lipsum.eml"));
 
         assertEquals("Config error: MX required in file mode", logs.get(0));
         assertEquals(7, logs.size());
 
-        logs = MainMock.main(Arrays.asList("--client", "-f", "src/test/resources/lipsum.eml", "-x", "example.com"));
+        logs = MainMock.main(Arrays.asList("--client", "-f", "src/test/resources/mime/lipsum.eml", "-x", "example.com"));
 
         assertEquals("Config error: MAIL required in file mode", logs.get(0));
         assertEquals(7, logs.size());
 
-        logs = MainMock.main(Arrays.asList("--client", "-f", "src/test/resources/lipsum.eml", "-x", "example.com", "-m", "john@example.com"));
+        logs = MainMock.main(Arrays.asList("--client", "-f", "src/test/resources/mime/lipsum.eml", "-x", "example.com", "-m", "john@example.com"));
 
         assertEquals("Config error: RCPT required in file mode", logs.get(0));
         assertEquals(7, logs.size());
 
-        logs = MainMock.main(Arrays.asList("--client", "-f", "src/test/resources/lipsum.eml", "-x", "example.com", "-m", "john@example.com", "-r", "jane@example.com"));
+        logs = MainMock.main(Arrays.asList("--client", "-f", "src/test/resources/mime/lipsum.eml", "-x", "example.com", "-m", "john@example.com", "-r", "jane@example.com"));
 
         assertEquals("Config error: Config directory not found", logs.get(0));
         assertEquals(7, logs.size());

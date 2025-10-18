@@ -2,18 +2,20 @@ package com.mimecast.robin.queue;
 
 import com.mimecast.robin.main.Config;
 import com.mimecast.robin.main.Factories;
-import com.mimecast.robin.mime.EmailBuilder;
-import com.mimecast.robin.mime.parts.TextMimePart;
-import com.mimecast.robin.queue.bounce.BounceGenerator;
+import com.mimecast.robin.queue.bounce.BounceMessageGenerator;
 import com.mimecast.robin.queue.relay.DovecotLdaDelivery;
 import com.mimecast.robin.smtp.EmailDelivery;
 import com.mimecast.robin.smtp.MessageEnvelope;
+import com.mimecast.robin.smtp.transaction.EnvelopeTransactionList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.File;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -24,88 +26,160 @@ import java.util.concurrent.TimeUnit;
 public class RelayQueueCron {
     private static final Logger log = LogManager.getLogger(RelayQueueCron.class);
 
+    // Queue file from config.
+    public static final File QUEUE_FILE = new File(Config.getServer().getRelay().getStringProperty("queueFile", "/tmp/robinRelayQueue.db"));
+
+    // Scheduler configuration (seconds)
+    private static final int INITIAL_DELAY_SECONDS = 60; // 1 minute
+    private static final int PERIOD_SECONDS = 60;        // every minute
+
+    // Shared state
+    private static volatile ScheduledExecutorService scheduler;
+    private static volatile PersistentQueue<RelaySession> queue;
+
+    // Timing info (epoch seconds)
+    private static volatile long lastExecutionEpochSeconds = 0L;
+    private static volatile long nextExecutionEpochSeconds = 0L;
+
     /**
      * Main method to start the cron job.
      */
-    public static void run() {
-        RelayQueue queue = new RelayQueue();
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    public static synchronized void run() {
+        if (scheduler != null) {
+            return; // already running
+        }
+
+        queue = PersistentQueue.getInstance(QUEUE_FILE);
+        scheduler = Executors.newScheduledThreadPool(1);
 
         Runnable task = () -> {
-            RelaySession relaySession = queue.dequeue();
-            if (relaySession != null) {
-                // Not yet time to retry, re-enqueue and return.
-                int nextRetrySeconds = RetryScheduler.getNextRetry(relaySession.getRetryCount());
-                if (relaySession.getLastRetryTime() < System.currentTimeMillis() / 1000L + nextRetrySeconds) {
-                    new RelayQueue().enqueue(relaySession);
-                    return;
-                }
+            try {
+                lastExecutionEpochSeconds = Instant.now().getEpochSecond();
+                nextExecutionEpochSeconds = lastExecutionEpochSeconds + PERIOD_SECONDS;
 
-                // Clear transaction list and try again.
-                relaySession.getSession().getSessionTransactionList().clear();
+                RelaySession relaySession = queue.dequeue();
+                if (relaySession != null) {
+                    // Not yet time to retry, re-enqueue and return.
+                    int nextRetrySeconds = RetryScheduler.getNextRetry(relaySession.getRetryCount());
+                    if (relaySession.getLastRetryTime() < System.currentTimeMillis() / 1000L + nextRetrySeconds) {
+                        queue.enqueue(relaySession);
+                        return;
+                    }
 
-                if (relaySession.getProtocol().equalsIgnoreCase("dovecot-lda")) {
-                    new DovecotLdaDelivery(relaySession).send();
-                } else {
-                    new EmailDelivery(relaySession.getSession()).send();
-                }
+                    // Clear transaction list and try again.
+                    relaySession.getSession().getSessionTransactionList().clear();
 
-                // If there are still errors bump the retry count and re-enqueue.
-                if (!relaySession.getSession().getSessionTransactionList().getErrors().isEmpty()) {
-                    if (relaySession.getRetryCount() < 30) {
-                        relaySession.bumpRetryCount();
-                        new RelayQueue().enqueue(relaySession);
+                    if (relaySession.getProtocol().equalsIgnoreCase("dovecot-lda")) {
+                        new DovecotLdaDelivery(relaySession).send();
                     } else {
-                        // Generate bounce for each recipient.
-                        for (String recipient : relaySession.getSession().getEnvelopes().getLast().getRcpts()) {
-                            BounceGenerator bounceGenerator = new BounceGenerator(relaySession);
-                            String text = bounceGenerator.generatePlainText(recipient);
-                            String status = bounceGenerator.generateDeliveryStatus(recipient);
+                        new EmailDelivery(relaySession.getSession()).send();
+                    }
 
-                            // Build MIME.
-                            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                            try {
-                                new EmailBuilder(relaySession.getSession(), new MessageEnvelope())
-                                        .addHeader("Subject", "Delivery Status Notification (Failure)")
-                                        .addHeader("To", recipient)
-                                        .addHeader("From", "Mail Delivery Subsystem <mailer-daemon@" + Config.getServer().getHostname() + ">")
+                    // Remove successful recipients from the envelopes and successful envelopes from the session.
+                    List<EnvelopeTransactionList> envelopes = relaySession.getSession().getSessionTransactionList().getEnvelopes();
+                    List<MessageEnvelope> successfulEnvelopes = new ArrayList<>();
+                    for (int i = 0; i < envelopes.size(); i++) {
+                        EnvelopeTransactionList transactions = envelopes.get(i);
+                        MessageEnvelope envelope = relaySession.getSession().getEnvelopes().get(i);
 
-                                        .addPart(new TextMimePart(text.getBytes())
-                                                .addHeader("Content-Type", "text/plain; charset=\"UTF-8\"")
-                                                .addHeader("Content-Transfer-Encoding", "7bit")
-                                        )
-
-                                        .addPart(new TextMimePart(status.getBytes())
-                                                .addHeader("Content-Type", "message/delivery-status; charset=\"UTF-8\"")
-                                                .addHeader("Content-Transfer-Encoding", "7bit")
-                                        )
-                                        .writeTo(stream);
-                            } catch (IOException e) {
-                                log.error("Failed to build bounce message for: {} due to error: {}", recipient, e.getMessage());
+                        if (transactions.getErrors().isEmpty()) {
+                            successfulEnvelopes.add(envelope);
+                        } else {
+                            // Some recipients succeeded, some failed. Remove successful recipients.
+                            if (transactions.getRecipients() != transactions.getFailedRecipients()) {
+                                envelope.setRcpts(transactions.getFailedRecipients());
                             }
+                        }
+                    }
 
-                            RelaySession relaySessionBounce = new RelaySession(Factories.getSession())
-                                    .setProtocol("esmtp");
+                    // Remove fully successful envelopes.
+                    relaySession.getSession().getEnvelopes().removeAll(successfulEnvelopes);
 
-                            MessageEnvelope envelope = new MessageEnvelope()
-                                    .setMail("mailer-daemon@" + Config.getServer().getHostname())
-                                    .setRcpt(recipient)
-                                    .setStream(new ByteArrayInputStream(stream.toByteArray()));
+                    // If there are still envelopes to process, check retry count.
+                    // If retry count < 30, bump and re-enqueue.
+                    // If retry count >= 30, generate bounces for each recipient in each envelope.
+                    if (!relaySession.getSession().getEnvelopes().isEmpty()) {
+                        if (relaySession.getRetryCount() < 30) {
+                            relaySession.bumpRetryCount();
+                            queue.enqueue(relaySession);
+                        } else {
+                            for (String recipient : relaySession.getSession().getEnvelopes().getLast().getRcpts()) {
+                                // Generate bounce email.
+                                BounceMessageGenerator bounce = new BounceMessageGenerator(relaySession, recipient);
 
-                            relaySessionBounce.getSession().addEnvelope(envelope);
+                                // Build the session.
+                                RelaySession relaySessionBounce = new RelaySession(Factories.getSession())
+                                        .setProtocol("esmtp");
+
+                                // Create the envelope.
+                                MessageEnvelope envelope = new MessageEnvelope()
+                                        .setMail("mailer-daemon@" + Config.getServer().getHostname())
+                                        .setRcpt(recipient)
+                                        .setBytes(bounce.getStream().toByteArray());
+                                relaySessionBounce.getSession().addEnvelope(envelope);
+
+                                // Queue bounce for delivery.
+                                queue.enqueue(relaySessionBounce);
+                            }
                         }
                     }
                 }
+            } catch (Exception e) {
+                log.error("RelayQueueCron task error: {}", e.getMessage(), e);
             }
         };
 
         // Schedule the task to run every minute after a minute.
-        scheduler.scheduleAtFixedRate(task, 1, 1, TimeUnit.MINUTES);
+        nextExecutionEpochSeconds = Instant.now().getEpochSecond() + INITIAL_DELAY_SECONDS;
+        scheduler.scheduleAtFixedRate(task, INITIAL_DELAY_SECONDS, PERIOD_SECONDS, TimeUnit.SECONDS);
 
         // Add shutdown hook to close resources.
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            scheduler.shutdown();
-            queue.close();
+            try {
+                if (scheduler != null) {
+                    scheduler.shutdown();
+                }
+            } finally {
+                if (queue != null) {
+                    queue.close();
+                }
+            }
         }));
+    }
+
+    // ===== Exposed helpers for health/metrics =====
+
+    public static long getQueueSize() {
+        PersistentQueue<RelaySession> q = queue != null ? queue : PersistentQueue.getInstance(QUEUE_FILE);
+        return q.size();
+    }
+
+    /**
+     * Build a histogram of retryCount -> number of items.
+     */
+    public static Map<Integer, Long> getRetryHistogram() {
+        Map<Integer, Long> histogram = new HashMap<>();
+        PersistentQueue<RelaySession> q = queue != null ? queue : PersistentQueue.getInstance(QUEUE_FILE);
+        for (RelaySession s : q.snapshot()) {
+            int retry = s.getRetryCount();
+            histogram.put(retry, histogram.getOrDefault(retry, 0L) + 1L);
+        }
+        return histogram;
+    }
+
+    public static long getLastExecutionEpochSeconds() {
+        return lastExecutionEpochSeconds;
+    }
+
+    public static long getNextExecutionEpochSeconds() {
+        return nextExecutionEpochSeconds;
+    }
+
+    public static int getInitialDelaySeconds() {
+        return INITIAL_DELAY_SECONDS;
+    }
+
+    public static int getPeriodSeconds() {
+        return PERIOD_SECONDS;
     }
 }

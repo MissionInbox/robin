@@ -54,12 +54,30 @@ public class ServerConfig extends ConfigFoundation {
     }
 
     /**
-     * Gets bind port.
+     * Gets SMTP port.
      *
      * @return Bind address number.
      */
     public int getPort() {
         return Math.toIntExact(getLongProperty("port", 25L));
+    }
+
+    /**
+     * Gets SMTPS port.
+     *
+     * @return Bind address number.
+     */
+    public int getSecurePort() {
+        return Math.toIntExact(getLongProperty("securePort", 465L));
+    }
+
+    /**
+     * Gets Submission port.
+     *
+     * @return Bind address number.
+     */
+    public int getSubmissionPort() {
+        return Math.toIntExact(getLongProperty("submissionPort", 587L));
     }
 
     /**
@@ -164,6 +182,15 @@ public class ServerConfig extends ConfigFoundation {
     }
 
     /**
+     * Gets metrics port.
+     *
+     * @return Bind address number.
+     */
+    public int getMetricsPort() {
+        return Math.toIntExact(getLongProperty("metricsPort", 8080L));
+    }
+
+    /**
      * Gets storage config.
      *
      * @return BasicConfig instance.
@@ -179,6 +206,42 @@ public class ServerConfig extends ConfigFoundation {
      */
     public BasicConfig getRelay() {
         return new BasicConfig(getMapProperty("relay"));
+    }
+
+    /**
+     * Is Dovecot authentication via UNIX socket enabled.
+     *
+     * @return Boolean.
+     */
+    public boolean isDovecotAuth() {
+        return getBooleanProperty("dovecotAuth", false);
+    }
+
+    /**
+     * Gets Dovecot AUTH socket path.
+     *
+     * @return String.
+     */
+    public String getDovecotAuthSocket() {
+        return getStringProperty("dovecotAuthSocket", "/run/dovecot/auth-userdb");
+    }
+
+    /**
+     * Gets Dovecot LDA binary path.
+     *
+     * @return String.
+     */
+    public String getDovecotLdaBinary() {
+        return getStringProperty("dovecotLdaBinary", "/usr/libexec/dovecot/dovecot-lda");
+    }
+
+    /**
+     * Is users enabled.
+     *
+     * @return Boolean.
+     */
+    public boolean isUsersEnabled() {
+        return !isDovecotAuth() && getBooleanProperty("usersEnabled", false);
     }
 
     /**

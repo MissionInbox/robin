@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Metrics Charts</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #fdfdfd; color: #333; display:grid; grid-template-columns:repeat(auto-fill,minmax(400px,1fr)); gap:1rem; }
+        h2 { margin: 0; padding: 0.5rem; background: #e0e0e0; }
+        canvas { background-color: #fff; border: 1px solid #ddd; margin-bottom: -1px; padding: 12px; }
+        h2 { border-top-left-radius: 4px; border-top-right-radius: 4px; }
+        canvas { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+    </style>
+    <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+</head>
+<body>
+<script>
+    const metricsToChart = [
+        'jvm_threads_daemon', 'jvm_threads_live', 'jvm_threads_peak', 'jvm_threads_started', 'jvm_threads_states',
+        'process_cpu_usage', 'system_cpu_count', 'system_cpu_usage',
+        'jvm_memory_committed', 'jvm_memory_max', 'jvm_memory_used',
+        'jvm_buffer_count', 'jvm_buffer_memory_used', 'jvm_buffer_total_capacity',
+        'jvm_gc_concurrent_phase_time', 'jvm_gc_live_data_size', 'jvm_gc_max_data_size', 'jvm_gc_memory_allocated', 'jvm_gc_memory_promoted', 'jvm_gc_pause'
+    ];
+    const charts = {};
+    metricsToChart.forEach(metric => {
+        const container = document.createElement('div');
+        const title = document.createElement('h2');
+        title.innerText = metric;
+        const canvas = document.createElement('canvas');
+        container.appendChild(title); container.appendChild(canvas);
+        document.body.appendChild(container);
+        const ctx = canvas.getContext('2d');
+        charts[metric] = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: metric, data: [], fill: false, borderColor: 'rgb(75, 192, 192)', tension: 0.1 }] },
+            options: { animation: false }
+        });
+    });
+    function fetchData() {
+        fetch('/graphite')
+            .then(response => response.text())
+            .then(text => {
+                const lines = text.trim().split('\n');
+                const now = new Date().toLocaleTimeString();
+                lines.forEach(line => {
+                    const parts = line.split(' ');
+                    const metricName = parts[0].split('.')[0];
+                    if (metricsToChart.includes(metricName)) {
+                        const chart = charts[metricName];
+                        if (chart.data.labels.length > 20) {
+                            chart.data.labels.shift();
+                            chart.data.datasets[0].data.shift();
+                        }
+                        chart.data.labels.push(now);
+                        chart.data.datasets[0].data.push(parseFloat(parts[1]));
+                        chart.update();
+                    }
+                });
+            });
+    }
+    setInterval(fetchData, 2000);
+    fetchData();
+</script>
+</body>
+</html>

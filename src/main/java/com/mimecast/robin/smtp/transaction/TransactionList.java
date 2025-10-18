@@ -3,6 +3,7 @@ package com.mimecast.robin.smtp.transaction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,7 +14,7 @@ import java.util.List;
  * <p>This provides an abstract implementation for SMTP transactions.
  */
 @SuppressWarnings("squid:S1192")
-public abstract class TransactionList {
+public abstract class TransactionList implements Serializable {
     private static final Logger log = LogManager.getLogger(TransactionList.class);
 
     /**
@@ -134,6 +135,54 @@ public abstract class TransactionList {
         }
 
         return found;
+    }
+
+    /**
+     * Checks if there was a DATA command error.
+     *
+     * @return boolean.
+     */
+    public boolean isDataError() {
+        for (Transaction transaction : transactions) {
+            if (transaction.getCommand().equalsIgnoreCase("data") && transaction.isError()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gets failed recipients from RCPT commands.
+     *
+     * @return List of String.
+     */
+    public List<String> getFailedRecipients() {
+        List<String> failedRecipients = new ArrayList<>();
+        for (Transaction transaction : transactions) {
+            if (transaction.getCommand().equalsIgnoreCase("rcpt") && transaction.isError()) {
+                if (transaction.getAddress() != null) {
+                    failedRecipients.add(transaction.getAddress());
+                }
+            }
+        }
+        return failedRecipients;
+    }
+
+    /**
+     * Gets all recipients from RCPT commands.
+     *
+     * @return List of String.
+     */
+    public List<String> getRecipients() {
+        List<String> recipients = new ArrayList<>();
+        for (Transaction transaction : transactions) {
+            if (transaction.getCommand().equalsIgnoreCase("rcpt")) {
+                if (transaction.getAddress() != null) {
+                    recipients.add(transaction.getAddress());
+                }
+            }
+        }
+        return recipients;
     }
 
     /**

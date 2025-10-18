@@ -5,8 +5,14 @@
   // Interface the server will bind too (default: ::).
   bind: "::",
 
-  // Port the server will listen too (default: 25).
+  // Port the server will listen too (default: 25, 0 to disable).
   port: 25,
+
+  // Port for secure SMTP via SSL/TLS (default: 465, 0 to disable).
+  securePort: 465,
+
+  // Port for mail submission (default: 587, 0 to disable).
+  submissionPort: 587,
 
   // Number of connections to be allowed in the backlog (default: 25).
   backlog: 25,
@@ -32,6 +38,9 @@
   // Keystore password.
   keystorepassword: "avengers",
 
+  // Metrics endpoint port.
+  metricsPort: 8080,
+
   // Email storage configuration.
   storage: {
     enabled: true,
@@ -40,12 +49,15 @@
     path: "/usr/local/robin/store",
 
     // Auto clean storage on service start.
-    clean: true,
+    clean: false,
 
     // Auto clean delete matching filenames only.
     patterns: [
       "^([0-9]{8}\\.)"
-    ]
+    ],
+
+    // Save a copy of each email to Dovecot LDA.
+    saveToDovecotLda: true
   },
 
   // Email relay configuration.
@@ -72,12 +84,28 @@
     // Leave blank to bypass parameter.
     mailbox: "INBOX",
 
-    // TODO: Bounce email if relay fails.
-    bounce: true
+    // Bounce email if relay fails.
+    bounce: true,
+
+    // Queue file to use for persisting messages that could not be relayed.
+    queueFile: "/usr/local/robin/relayQueue.db"
   },
+
+  // Dovecot authentication configuration.
+  // This default is an example for local Dovecot.
+  // Enabling this will disable the users list below.
+  dovecotAuth: true,
+
+  // Path to Dovecot authentication socket.
+  dovecotAuthSocket: "/run/dovecot/auth-userdb",
+
+  // Path to Dovecot LDA binary.
+  dovecotLdaBinary: "/usr/libexec/dovecot/dovecot-lda",
 
   // Users allowed to authorize to the server.
   // This feature should be used for testing only.
+  // This is disabled by default for security reasons.
+  usersEnabled: false,
   users: [
     {
       name: "tony@example.com",

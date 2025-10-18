@@ -235,9 +235,9 @@ Case
     {
         // Magic variables.
         $: { // Use the dollar sign to define a map to hold them.
-            fromAddress: "robin@mimecast.net",
+            fromAddress: "robin@example.come",
             toUser: "smoke",
-            toDomain: "mta11.goldcheesyfish.com",
+            toDomain: "example.net",
             toAddress: "{$toUser}@{$toDomain}" // Can be used immediatelly after defined above.
         },
         
@@ -313,7 +313,7 @@ Case
                     // External assertions.
                     external: [
                       {
-                        // Assertion type logs for pulling logs from FFS.
+                        // Assertion type logs for pulling logs.
                         type: "logs",
             
                         // How long to wait before asserting.

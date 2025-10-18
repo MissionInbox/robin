@@ -8,10 +8,9 @@ import com.mimecast.robin.smtp.MessageEnvelope;
 import com.mimecast.robin.smtp.connection.SmtpFoundation;
 import com.mimecast.robin.smtp.transaction.SessionTransactionList;
 import com.mimecast.robin.util.Magic;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import org.apache.logging.log4j.ThreadContext;
 
+import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -21,13 +20,25 @@ import java.util.*;
  * <p>This is the primary container for session data.
  */
 @SuppressWarnings({"UnusedReturnValue", "rawtypes"})
-@Entity
-public class Session {
+public class Session implements Serializable {
+
+    /**
+     * Direction enum.
+     */
+    public enum Direction {
+        INBOUND,
+        OUTBOUND
+    }
+
+    /**
+     * Session direction.
+     * <p>Default: INBOUND.
+     */
+    private Direction direction = Direction.INBOUND;
 
     /**
      * UID.
      */
-    @Id
     private String uid = UUID.randomUUID().toString();
 
     /**
@@ -171,6 +182,12 @@ public class Session {
     private boolean startTls = false;
 
     /**
+     * Is secure port.
+     * <p>This supports submission unlike main port.
+     */
+    private boolean securePort = false;
+
+    /**
      * Do auth before TLS.
      */
     private boolean authBeforeTls = false;
@@ -248,6 +265,44 @@ public class Session {
      */
     public void map(CaseConfig caseConfig) {
         new ConfigMapper(caseConfig).mapTo(this);
+    }
+
+    /**
+     * Sets direction.
+     *
+     * @param direction Enum.
+     * @return Self.
+     */
+    public Session setDirection(Direction direction) {
+        this.direction = direction;
+        return this;
+    }
+
+    /**
+     * Gets direction.
+     *
+     * @return Enum.
+     */
+    public Direction getDirection() {
+        return direction;
+    }
+
+    /**
+     * Gets inbound direction.
+     *
+     * @return Boolean.
+     */
+    public boolean isInbound() {
+        return direction == Direction.INBOUND;
+    }
+
+    /**
+     * Gets outbound direction.
+     *
+     * @return Boolean.
+     */
+    public boolean isOutbound() {
+        return direction == Direction.OUTBOUND;
     }
 
     /**
@@ -835,6 +890,26 @@ public class Session {
     }
 
     /**
+     * Gets secure port enablement.
+     *
+     * @return Secure port enablement.
+     */
+    public boolean isSecurePort() {
+        return securePort;
+    }
+
+    /**
+     * Sets secure port enablement.
+     *
+     * @param securePort Secure port enablement.
+     * @return Self.
+     */
+    public Session setSecurePort(boolean securePort) {
+        this.securePort = securePort;
+        return this;
+    }
+
+    /**
      * Gets AUTH before TLS enablement.
      *
      * @return AUTH before TLS enablement.
@@ -1026,7 +1101,7 @@ public class Session {
     /**
      * Has magic key.
      *
-     * @param key   Magic key.
+     * @param key Magic key.
      * @return Self.
      */
     public boolean hasMagic(String key) {
