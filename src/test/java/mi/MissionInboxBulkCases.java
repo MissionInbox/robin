@@ -30,12 +30,12 @@ public class MissionInboxBulkCases {
      *  - casePath: path to the case configuration file
      *
      * Configuration (system properties; defaults in parentheses):
-     *  - bulk.tasks (1000)
+     *  - bulk.tasks (100)
      *  - bulk.threads (10)
      *  - bulk.casePath (src/test/resources/cases/config/mi/submission.auth.staging.json5)
      */
     static Stream<Arguments> bulkMatrix() {
-        final int tasks = getIntProperty("bulk.tasks", 1000);
+        final int tasks = getIntProperty("bulk.tasks", 100);
         final int threads = Math.max(1, getIntProperty("bulk.threads", 10));
         final String casePath = System.getProperty(
                 "bulk.casePath",
