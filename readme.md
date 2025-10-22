@@ -1,29 +1,33 @@
 Robin MTA Server and Tester
-================
+===========================
 By **Vlad Marian** *<transilvlad@gmail.com>*
 
 
 Overview
 --------
-<img align="right" width="200" height="200" src="doc/logo.jpg" alt="Logo">
+<img align="right" width="200" height="200" src="doc/img/robin.jpg" alt="Logo">
 Robin MTA Server and Tester is a development, debug and testing tool for MTA architects.
-However as the name suggests it can also be used as a lightweight MTA server with Dovecot AUTH and mailbox integration support.
+
+However, as the name suggests it can also be used as a lightweight MTA server with Dovecot SASL AUTH and mailbox integration.
 
 It is powered by a highly customizable SMTP client designed to emulate the behaviour of popular email clients.
-The lightweight server is ideal for a simple configurable catch server for testing or a fully fledged MTA on using Dovecot mailboxes.
 
-The primary usage is done via JSON files called test cases.
-Cases are client configuration files ran as Junit tests.
+The lightweight server is ideal for a simple configurable catch server for testing or a fully fledged MTA using Dovecot mailboxes or web hooks.
+Provides Prometheus and Graphite metrics with Prometheus remote write built in plus a multitude or other handy endpoints.
 
-This project can be compiled into a runnable JAR or built into a Docker container.
+The testing support is done via JSON files called test cases.
+Cases are client configuration files ran as Junit tests leveraging CI/CD integrations.
 
-A CLI interface is implemented with support for both client and server execution.
+This project can be compiled into a runnable JAR or built into a Docker container as a stand alone MTA or combined with Dovecot.
+
+A CLI interface is implemented with support for client, server and MTA-STS client execution.
+Robin makes use of the single responsibility principle whenever possible providing stand-alone tools and libraries most notably an MTA-STS implementation.
 
 Use this to run end-to-end tests manually or in automation.
 This helps identify bugs early before leaving the development and staging environments.
 
-Or set up a lightweight MTA server for your development and testing needs.
-Or both :)
+Or set up the MTA server and configure it with for your mailbox hosting, API infrastructure or bespoke needs.
+Best do both since Robin is both an MTA and MTA tester :)
 
 Contributions
 -------------
@@ -48,25 +52,42 @@ This project makes use of sample password as needed for testing and demonstratio
 - giveHerTheRing - Another sample used in unit tests and documentation. (Tony Stark / Pepper Pots Easter egg)
 - avengers - Test keystore password that contains a single entry issued to Tony Stark. (Another Easter egg)
 
-**These passwords are not in use within our production environments.**
+**These passwords are not in use within production environments.**
 
 
-More...
--------
+Documentation
+-------------
 - [Introduction](doc/introduction.md)
 - [CLI usage](doc/cli.md)
+
+### Java SMTP/E/SMTP/LMTP Client
 - [Client usage](doc/client.md)
+
+### MTA Server
 - [Server configuration](doc/server.md)
+- [SMTP webhooks](doc/webhooks.md)
+- [Endpoints](doc/endpoints.md) - JVM metrics implementation.
+- [Prometheus Remote Write](doc/prometheus.md) - Prometheus Remote Write implementation.
 
-
-- [E/SMTP Cases](doc/case.md)
-- [HTTP/S Cases](doc/case.md)
+### Testing cases
+- [E/SMTP Cases](doc/case-smtp.md)
+- [HTTP/S Cases](doc/case-http.md)
 - [Magic](doc/magic.md)
 - [MIME](doc/mime.md)
+
+### Server Library
 - [Plugins](doc/plugins.md)
-- [Endpoints](doc/endpoints.md)
 - [Flowchart](doc/flowchart.md)
 
+### Libraries
+- [MTA-STS](doc/lib/mta-sts/readme.md) - MTA-STS compliant MX resolver implementation (former MTA-STS library).
+- [Dovecot SASL](doc/lib/dovecot-sasl.md) - Dovecot SASL authentication implementation.
+- [IMAP helper](doc/lib/imap.md) - Lightweight Jakarta Mail IMAP client.
+- [MIME Parsing and Building](doc/lib/mime.md) - Lightweight RFC 2822 email parsing and composition.
+- [HTTP Request Client](doc/lib/request.md) - Lightweight HTTP request client.
 
+### Miscellaneous
 - [Contributing](contributing.md)
 - [Code of conduct](code_of_conduct.md)
+
+_Robin is designed with single responsibility principle in mind and thus provides reusable components for various tasks._

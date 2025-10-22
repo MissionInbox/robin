@@ -1,135 +1,216 @@
 package com.mimecast.robin.main;
 
-import com.mimecast.robin.endpoints.MetricsEndpoint;
+import com.mimecast.robin.config.server.ServerConfig;
+import com.mimecast.robin.endpoints.ClientEndpoint;
+import com.mimecast.robin.endpoints.RobinMetricsEndpoint;
+import com.mimecast.robin.metrics.MetricsCron;
 import com.mimecast.robin.queue.RelayQueueCron;
 import com.mimecast.robin.smtp.SmtpListener;
+import com.mimecast.robin.smtp.metrics.SmtpMetrics;
 import com.mimecast.robin.storage.StorageCleaner;
 
 import javax.naming.ConfigurationException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Socket listener.
+ * Main server class for the Robin SMTP server.
  *
- * <p>This is the means by which the server is started.
- * <p>It's initialized with a configuration dir path.
- * <p>The configuration path is used to load the global configuration files.
- * <p>Loads both client and server configuration files.
+ * <p>This class is responsible for initializing and managing the server's lifecycle.
+ * <p>It loads configurations, sets up SMTP listeners, and starts various background services
+ * such as metrics, client endpoints, and queue processing.
+ *
+ * <p>The server is started by calling the static {@link #run(String)} method with the path
+ * to the configuration directory.
+ *
+ * <p>This class also handles graceful shutdown of the server and its components.
  *
  * @see SmtpListener
+ * @see Foundation
  */
+@SuppressWarnings("squid:S106")
 public class Server extends Foundation {
 
     /**
-     * Listener instances.
+     * List of active SMTP listener instances.
+     * Using a standard ArrayList as the list is populated at startup and not modified thereafter.
      */
-    private static final List<SmtpListener> listeners = new CopyOnWriteArrayList<>();
+    private static final List<SmtpListener> listeners = new ArrayList<>();
 
     /**
-     * Runner.
+     * Executor service for running the SMTP listeners in separate threads.
+     * This provides better resource management than creating individual threads.
+     */
+    private static ExecutorService listenerExecutor;
+
+    /**
+     * Initializes and starts the Robin SMTP server.
      *
-     * @param path Directory path.
-     * @throws ConfigurationException Unable to read/parse config file.
+     * @param path The directory path containing the configuration files.
+     * @throws ConfigurationException If there is an issue with the configuration files.
      */
     public static void run(String path) throws ConfigurationException {
-        init(path); // Initialize foundation.
-        registerShutdown(); // Shutdown hook.
-        loadKeystore(); // Load Keystore.
+        init(path); // Initialize foundation configuration.
+        registerShutdownHook(); // Register shutdown hook for graceful termination.
+        loadKeystore(); // Load SSL keystore.
 
-        // Create listeners and add them to the list.
-        List<Integer> ports = List.of(
-                Config.getServer().getPort(),
-                Config.getServer().getSecurePort(),
-                Config.getServer().getSubmissionPort()
-        );
+        ServerConfig serverConfig = Config.getServer();
 
-        for (int port : ports) {
-            if (port != 0) {
-                listeners.add(new SmtpListener(
-                        port,
-                        Config.getServer().getBacklog(),
-                        Config.getServer().getBind(),
-                        port == Config.getServer().getSecurePort(),
-                        port == Config.getServer().getSubmissionPort()
-                ));
-            }
+        // Create SMTP listeners based on configuration.
+        // Standard SMTP listener.
+        if (serverConfig.getSmtpPort() != 0) {
+            listeners.add(new SmtpListener(
+                    serverConfig.getSmtpPort(),
+                    serverConfig.getBind(),
+                    serverConfig.getSmtpConfig(),
+                    false,
+                    false
+            ));
         }
 
-        startup(); // Startup prerequisites, including MetricsEndpoint.
+        // Secure SMTP (SMTPS) listener.
+        if (serverConfig.getSecurePort() != 0) {
+            listeners.add(new SmtpListener(
+                    serverConfig.getSecurePort(),
+                    serverConfig.getBind(),
+                    serverConfig.getSecureConfig(),
+                    true,
+                    false
+            ));
+        }
 
-        // Start listeners in separate threads.
-        for (SmtpListener listener : listeners) {
-            new Thread(listener::listen).start();
+        // Submission listener (MSA).
+        if (serverConfig.getSubmissionPort() != 0) {
+            listeners.add(new SmtpListener(
+                    serverConfig.getSubmissionPort(),
+                    serverConfig.getBind(),
+                    serverConfig.getSubmissionConfig(),
+                    false,
+                    true
+            ));
+        }
+
+        startup(); // Start prerequisite services.
+
+        // Start listeners in the thread pool.
+        if (!listeners.isEmpty()) {
+            listenerExecutor = Executors.newFixedThreadPool(listeners.size());
+            for (SmtpListener listener : listeners) {
+                listenerExecutor.submit(listener::listen);
+            }
         }
     }
 
     /**
-     * Startup prerequisites.
+     * Starts up the prerequisite services for the server.
+     * This includes storage cleaning, queue management, metrics, and client endpoints.
      */
     private static void startup() {
-        // Start relay queue cron job.
-        RelayQueueCron.run();
-
-        // Clean storage on startup.
+        // Clean storage directory on startup.
         StorageCleaner.clean(Config.getServer().getStorage());
 
-        // Start metrics endpoint.
+        // Start the relay queue cron job for processing queued messages.
+        RelayQueueCron.run();
+
+        // Start the metrics endpoint for monitoring.
         try {
-            new MetricsEndpoint().start();
+            new RobinMetricsEndpoint().start(Config.getServer().getMetricsPort());
+            // Initialize SMTP metrics to ensure they appear with zero values at startup.
+            SmtpMetrics.initialize();
         } catch (IOException e) {
             log.error("Unable to start monitoring endpoint: {}", e.getMessage());
         }
+
+        // Start the metrics remote write cron if configured.
+        try {
+            MetricsCron.run(Config.getServer().getPrometheus());
+        } catch (Exception e) {
+            log.error("Unable to start metrics cron: {}", e.getMessage());
+        }
+
+        // Start the client submission endpoint.
+        try {
+            new ClientEndpoint().start();
+        } catch (IOException e) {
+            log.error("Unable to start client submission endpoint: {}", e.getMessage());
+        }
     }
 
     /**
-     * Shutdown hook.
+     * Registers a shutdown hook to ensure graceful termination of the server.
+     * This hook will be called by the JVM on shutdown.
      */
-    private static void registerShutdown() {
+    private static void registerShutdownHook() {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Service is shutting down.");
+
+            // Shutdown all active listeners.
             for (SmtpListener listener : listeners) {
                 if (listener != null && listener.getListener() != null) {
-                    log.info("Service is shutting down.");
                     try {
                         listener.serverShutdown();
                     } catch (IOException e) {
-                        log.info("Shutdown in progress.. please wait.");
+                        log.error("Error shutting down listener on port {}: {}", listener.getPort(), e.getMessage());
                     }
                 }
             }
+
+            // Shutdown the listener executor service.
+            if (listenerExecutor != null) {
+                listenerExecutor.shutdown();
+                try {
+                    if (!listenerExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                        listenerExecutor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    listenerExecutor.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
+            }
+
+            log.info("Shutdown complete.");
         }));
     }
 
     /**
-     * Load Keystore.
+     * Loads the SSL keystore for secure connections.
+     * The keystore path and password are read from the server configuration.
      */
     private static void loadKeystore() {
-        // Check keystore file is readable.
-        try {
-            Files.readAllBytes(Paths.get(Config.getServer().getKeyStore()));
-        } catch (IOException e) {
-            log.error("Error reading keystore file: {}", e.getMessage());
-        }
-        System.setProperty("javax.net.ssl.keyStore", Config.getServer().getKeyStore());
+        ServerConfig serverConfig = Config.getServer();
+        String keyStorePath = serverConfig.getKeyStore();
+        String keyStorePasswordPath = serverConfig.getKeyStorePassword();
 
-        // Read keystore password from file.
+        // Verify that the keystore file is readable.
+        try {
+            Files.readAllBytes(Paths.get(keyStorePath));
+        } catch (IOException e) {
+            log.error("Error reading keystore file [{}]: {}", keyStorePath, e.getMessage());
+            return;
+        }
+        System.setProperty("javax.net.ssl.keyStore", keyStorePath);
+
+        // Read keystore password from file or use plain text from config.
         String keyStorePassword;
         try {
-            keyStorePassword = new String(Files.readAllBytes(Paths.get(Config.getServer().getKeyStorePassword())));
+            keyStorePassword = new String(Files.readAllBytes(Paths.get(keyStorePasswordPath)));
         } catch (IOException e) {
-            log.warn("Keystore password treated as text.");
-            keyStorePassword = Config.getServer().getKeyStorePassword();
+            log.warn("Keystore password could not be read from file, treating as plain text.");
+            keyStorePassword = keyStorePasswordPath;
         }
         System.setProperty("javax.net.ssl.keyStorePassword", keyStorePassword);
     }
 
     /**
-     * Get listeners.
+     * Gets the list of active {@link SmtpListener} instances.
      *
-     * @return List of SmtpListener.
+     * @return A list of {@link SmtpListener}s.
      */
     public static List<SmtpListener> getListeners() {
         return listeners;

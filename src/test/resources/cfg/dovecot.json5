@@ -1,0 +1,13 @@
+{
+  // Enablement.
+  auth: false,
+
+  // Path to Dovecot authentication socket.
+  authSocket: "/run/dovecot/auth-userdb",
+
+  // Path to Dovecot LDA binary.
+  ldaBinary: "/usr/libexec/dovecot/dovecot-lda",
+
+  // Default outbound mailbox.
+  outboundMailbox: "Sent"
+}

@@ -25,7 +25,7 @@ class ClientStartTlsTest {
     @BeforeAll
     @SuppressWarnings("squid:S2925")
     static void before() throws InterruptedException, ConfigurationException {
-        Foundation.init("src/test/resources/");
+        Foundation.init("src/test/resources/cfg/");
 
         ServerConfig config = Config.getServer();
 
@@ -33,7 +33,7 @@ class ClientStartTlsTest {
             try {
                 System.setProperty("javax.net.ssl.keyStore", config.getKeyStore());
                 System.setProperty("javax.net.ssl.keyStorePassword", config.getKeyStorePassword());
-                new SmtpListener(10025, config.getBacklog(), "localhost", false, false);
+                new SmtpListener(10025, "localhost", config.getSmtpConfig(), false, false);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }

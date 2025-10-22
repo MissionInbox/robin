@@ -13,7 +13,7 @@ class ServerConfigTest {
 
     @BeforeAll
     static void before() throws ConfigurationException {
-        Foundation.init("src/test/resources/");
+        Foundation.init("src/test/resources/cfg/");
     }
 
     @Test
@@ -22,8 +22,8 @@ class ServerConfigTest {
     }
 
     @Test
-    void getPort() {
-        assertEquals(25, Config.getServer().getPort());
+    void getSmtpPort() {
+        assertEquals(25, Config.getServer().getSmtpPort());
     }
 
     @Test

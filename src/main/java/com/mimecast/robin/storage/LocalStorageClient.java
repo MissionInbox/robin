@@ -6,6 +6,7 @@ import com.mimecast.robin.main.Factories;
 import com.mimecast.robin.mime.EmailParser;
 import com.mimecast.robin.mime.headers.MimeHeader;
 import com.mimecast.robin.queue.PersistentQueue;
+import com.mimecast.robin.queue.QueueFiles;
 import com.mimecast.robin.queue.RelayQueueCron;
 import com.mimecast.robin.queue.RelaySession;
 import com.mimecast.robin.queue.bounce.BounceMessageGenerator;
@@ -172,7 +173,7 @@ public class LocalStorageClient implements StorageClient {
                 // Save to Dovecot LDA if enabled.
                 saveToDovecotLda();
 
-                // Relay email if X-Robin-Relay or relay configuration enabled.
+                // Relay email if X-Robin-Relay or relay configuration or direction outbound enabled.
                 relay();
 
             } catch (IOException e) {
@@ -246,10 +247,14 @@ public class LocalStorageClient implements StorageClient {
                         relaySessionBounce.getSession().addEnvelope(envelope);
 
                         // Queue bounce for delivery using runtime-configured queue file (fallback to default).
-                        File queueFile = new File(Config.getServer().getRelay().getStringProperty(
+                        File queueFile = new File(Config.getServer().getQueue().getStringProperty(
                                 "queueFile",
                                 RelayQueueCron.QUEUE_FILE.getAbsolutePath()
                         ));
+
+                        // Persist any envelope files (no-op for bytes-only envelopes) before enqueue.
+                        QueueFiles.persistEnvelopeFiles(relaySessionBounce);
+
                         PersistentQueue.getInstance(queueFile)
                                 .enqueue(relaySessionBounce);
                     }
@@ -268,7 +273,12 @@ public class LocalStorageClient implements StorageClient {
      * @return DovecotLdaDelivery instance.
      */
     protected DovecotLdaDelivery getDovecotLdaDeliveryInstance() {
-        return new DovecotLdaDelivery(new RelaySession(connection.getSession()));
+        RelaySession relaySession = new RelaySession(connection.getSession());
+        if (connection.getSession().isOutbound()) {
+            relaySession.setMailbox(Config.getServer().getDovecot().getStringProperty("outboundMailbox", "Sent"));
+        }
+
+        return new DovecotLdaDelivery(relaySession);
     }
 
     /**

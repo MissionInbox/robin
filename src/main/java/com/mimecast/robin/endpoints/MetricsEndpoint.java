@@ -1,10 +1,6 @@
 package com.mimecast.robin.endpoints;
 
-import com.mimecast.robin.main.Config;
-import com.mimecast.robin.main.Server;
-import com.mimecast.robin.queue.RelayQueueCron;
-import com.mimecast.robin.queue.RetryScheduler;
-import com.mimecast.robin.smtp.SmtpListener;
+import com.mimecast.robin.metrics.MetricsRegistry;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.micrometer.core.instrument.Clock;
@@ -14,8 +10,8 @@ import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.graphite.GraphiteConfig;
 import io.micrometer.graphite.GraphiteMeterRegistry;
-import io.micrometer.prometheus.PrometheusConfig;
-import io.micrometer.prometheus.PrometheusMeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusConfig;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -27,8 +23,6 @@ import java.lang.management.ThreadMXBean;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -42,33 +36,32 @@ import java.util.stream.Collectors;
 public class MetricsEndpoint {
     private static final Logger log = LogManager.getLogger(MetricsEndpoint.class);
 
-    private HttpServer server;
+    protected HttpServer server;
     private PrometheusMeterRegistry prometheusRegistry;
     private GraphiteMeterRegistry graphiteRegistry;
     private JvmGcMetrics jvmGcMetrics;
-    private final long startTime = System.currentTimeMillis();
+    protected final long startTime = System.currentTimeMillis();
 
     /**
      * Starts the embedded HTTP server for the metrics and management endpoint.
      * <p>This method initializes metric registries, binds JVM metrics, creates HTTP contexts for all endpoints,
      * and sets up shutdown hooks for graceful termination.
      *
+     * @param metricsPort The port on which the HTTP server will listen for incoming requests.
      * @throws IOException If an I/O error occurs during server startup.
      */
-    public void start() throws IOException {
+    public void start(int metricsPort) throws IOException {
         prometheusRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
         graphiteRegistry = getGraphiteMeterRegistry();
-
+        MetricsRegistry.register(prometheusRegistry, graphiteRegistry);
         bindJvmMetrics();
 
-        int metricsPort = Config.getServer().getMetricsPort();
         server = HttpServer.create(new InetSocketAddress(metricsPort), 10);
-
         createContexts();
-
         shutdownHooks();
 
         new Thread(server::start).start();
+        log.info("Landing available at http://localhost:{}/", metricsPort);
         log.info("UI available at http://localhost:{}/metrics", metricsPort);
         log.info("Graphite data available at http://localhost:{}/graphite", metricsPort);
         log.info("Prometheus data available at http://localhost:{}/prometheus", metricsPort);
@@ -98,7 +91,7 @@ public class MetricsEndpoint {
     /**
      * Creates and registers HTTP context handlers for all supported endpoints.
      */
-    private void createContexts() {
+    protected void createContexts() {
         server.createContext("/", this::handleLandingPage);
         server.createContext("/metrics", this::handleMetricsUi);
         server.createContext("/graphite", this::handleGraphite);
@@ -117,11 +110,13 @@ public class MetricsEndpoint {
      * @throws IOException If an I/O error occurs.
      */
     private void handleLandingPage(HttpExchange exchange) throws IOException {
+        log.debug("Handling metrics landing page: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         try {
-            String response = readResourceFile("endpoints-ui.html");
+            String response = readResourceFile("metrics-endpoints-ui.html");
             sendResponse(exchange, 200, "text/html; charset=utf-8", response);
         } catch (IOException e) {
-            log.error("Could not read endpoints-ui.html", e);
+            log.error("Could not read metrics-endpoints-ui.html", e);
             sendError(exchange, 500, "Internal Server Error");
         }
     }
@@ -133,6 +128,8 @@ public class MetricsEndpoint {
      * @throws IOException If an I/O error occurs.
      */
     private void handleMetricsUi(HttpExchange exchange) throws IOException {
+        log.debug("Handling /metrics UI: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         try {
             String response = readResourceFile("metrics-ui.html");
             sendResponse(exchange, 200, "text/html; charset=utf-8", response);
@@ -149,6 +146,8 @@ public class MetricsEndpoint {
      * @throws IOException If an I/O error occurs.
      */
     private void handleGraphite(HttpExchange exchange) throws IOException {
+        log.trace("Handling /graphite: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         StringBuilder response = new StringBuilder();
         graphiteRegistry.getMeters().forEach(meter -> meter.measure().forEach(measurement -> {
             String name = meter.getId().getName().replaceAll("\\.", "_");
@@ -164,6 +163,8 @@ public class MetricsEndpoint {
      * @throws IOException If an I/O error occurs.
      */
     private void handlePrometheus(HttpExchange exchange) throws IOException {
+        log.debug("Handling /prometheus: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         String response = prometheusRegistry.scrape();
         sendResponse(exchange, 200, "text/plain; charset=utf-8", response);
     }
@@ -175,6 +176,8 @@ public class MetricsEndpoint {
      * @throws IOException If an I/O error occurs.
      */
     private void handleEnv(HttpExchange exchange) throws IOException {
+        log.debug("Handling /env: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         String response = System.getenv().entrySet().stream()
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .collect(Collectors.joining("\n"));
@@ -188,6 +191,8 @@ public class MetricsEndpoint {
      * @throws IOException If an I/O error occurs.
      */
     private void handleSysProps(HttpExchange exchange) throws IOException {
+        log.debug("Handling /sysprops: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         String response = System.getProperties().entrySet().stream()
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .collect(Collectors.joining("\n"));
@@ -201,6 +206,8 @@ public class MetricsEndpoint {
      * @throws IOException If an I/O error occurs.
      */
     private void handleThreads(HttpExchange exchange) throws IOException {
+        log.debug("Handling /threads: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         String response = getThreadDump();
         sendResponse(exchange, 200, "text/plain; charset=utf-8", response);
     }
@@ -212,6 +219,8 @@ public class MetricsEndpoint {
      * @throws IOException If an I/O error occurs.
      */
     private void handleHeapDump(HttpExchange exchange) throws IOException {
+        log.debug("Handling /heapdump: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         try {
             String path = "heapdump-" + System.currentTimeMillis() + ".hprof";
             HotSpotDiagnostic.getDiagnostic().dumpHeap(path, true);
@@ -225,12 +234,14 @@ public class MetricsEndpoint {
 
     /**
      * Handles requests for the application's health status.
-     * <p>Provides a JSON response with the status, uptime, and number of active listeners.
+     * <p>Provides a JSON response with the status and uptime.
      *
      * @param exchange The HTTP exchange object.
      * @throws IOException If an I/O error occurs.
      */
-    private void handleHealth(HttpExchange exchange) throws IOException {
+    protected void handleHealth(HttpExchange exchange) throws IOException {
+        log.debug("Handling /health: method={}, uri={}, remote={}",
+                exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress());
         Duration uptime = Duration.ofMillis(System.currentTimeMillis() - startTime);
         String uptimeString = String.format("%dd %dh %dm %ds",
                 uptime.toDays(),
@@ -238,48 +249,9 @@ public class MetricsEndpoint {
                 uptime.toMinutesPart(),
                 uptime.toSecondsPart());
 
-        List<SmtpListener> listeners = Server.getListeners();
-        String listenersJson = listeners.stream()
-                .map(listener -> String.format("{\"port\":%d,\"threadPool\":{\"core\":%d,\"max\":%d,\"size\":%d,\"largest\":%d,\"active\":%d,\"queue\":%d,\"taskCount\":%d,\"completed\":%d,\"keepAliveSeconds\":%d}}",
-                        listener.getPort(),
-                        listener.getCorePoolSize(),
-                        listener.getMaximumPoolSize(),
-                        listener.getPoolSize(),
-                        listener.getLargestPoolSize(),
-                        listener.getActiveThreads(),
-                        listener.getQueueSize(),
-                        listener.getTaskCount(),
-                        listener.getCompletedTaskCount(),
-                        listener.getKeepAliveSeconds()))
-                .collect(Collectors.joining(",", "[", "]"));
-
-        // Queue and scheduler stats
-        long queueSize = RelayQueueCron.getQueueSize();
-        Map<Integer, Long> histogram = RelayQueueCron.getRetryHistogram();
-        String histogramJson = histogram.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(e -> String.format("\"%d\":%d", e.getKey(), e.getValue()))
-                .collect(Collectors.joining(",", "{", "}"));
-
-        String schedulerConfigJson = String.format("{\"totalRetries\":%d,\"firstWaitMinutes\":%d,\"growthFactor\":%.2f}",
-                RetryScheduler.getTotalRetries(),
-                RetryScheduler.getFirstWaitMinutes(),
-                RetryScheduler.getGrowthFactor());
-
-        String cronJson = String.format("{\"initialDelaySeconds\":%d,\"periodSeconds\":%d,\"lastExecutionEpochSeconds\":%d,\"nextExecutionEpochSeconds\":%d}",
-                RelayQueueCron.getInitialDelaySeconds(),
-                RelayQueueCron.getPeriodSeconds(),
-                RelayQueueCron.getLastExecutionEpochSeconds(),
-                RelayQueueCron.getNextExecutionEpochSeconds());
-
-        String queueJson = String.format("{\"size\":%d,\"retryHistogram\":%s}", queueSize, histogramJson);
-        String schedulerJson = String.format("{\"config\":%s,\"cron\":%s}", schedulerConfigJson, cronJson);
-
-        String response = String.format("{\"status\":\"UP\", \"uptime\":\"%s\", \"listeners\":%s, \"queue\":%s, \"scheduler\":%s}",
-                uptimeString,
-                listenersJson,
-                queueJson,
-                schedulerJson);
+        // Final health JSON response.
+        String response = String.format("{\"status\":\"UP\", \"uptime\":\"%s\"}",
+                uptimeString);
 
         sendResponse(exchange, 200, "application/json; charset=utf-8", response);
     }
@@ -293,13 +265,14 @@ public class MetricsEndpoint {
      * @param response    The response body as a string.
      * @throws IOException If an I/O error occurs.
      */
-    private void sendResponse(HttpExchange exchange, int code, String contentType, String response) throws IOException {
+    protected void sendResponse(HttpExchange exchange, int code, String contentType, String response) throws IOException {
         byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", contentType);
         exchange.sendResponseHeaders(code, responseBytes.length);
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(responseBytes);
         }
+        log.trace("Sent response: status={}, contentType={}, bytes={}", code, contentType, responseBytes.length);
     }
 
     /**
@@ -310,12 +283,13 @@ public class MetricsEndpoint {
      * @param message  The error message.
      * @throws IOException If an I/O error occurs.
      */
-    private void sendError(HttpExchange exchange, int code, String message) throws IOException {
+    protected void sendError(HttpExchange exchange, int code, String message) throws IOException {
         byte[] responseBytes = message.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(code, responseBytes.length);
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(responseBytes);
         }
+        log.debug("Sent error response: status={}, bytes={}", code, responseBytes.length);
     }
 
     /**
@@ -402,4 +376,3 @@ public class MetricsEndpoint {
         }
     }
 }
-

@@ -4,12 +4,14 @@ import com.mimecast.robin.config.server.UserConfig;
 import com.mimecast.robin.main.Config;
 import com.mimecast.robin.main.Extensions;
 import com.mimecast.robin.sasl.DovecotSaslAuthNative;
+import com.mimecast.robin.smtp.SmtpResponses;
 import com.mimecast.robin.smtp.connection.Connection;
 import com.mimecast.robin.smtp.verb.AuthVerb;
 import com.mimecast.robin.smtp.verb.Verb;
 import org.apache.commons.codec.binary.Base64;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Optional;
 
 /**
@@ -42,13 +44,13 @@ public class ServerAuth extends ServerProcessor {
 
         // Check if port is inbound and secure or submission.
         if (connection.getSession().isInbound() && !connection.getSession().isSecurePort()) {
-            connection.write("538 5.7.1 Authentication not supported");
+            connection.write(SmtpResponses.AUTH_NOT_SUPPORTED_538);
             return false;
         }
 
         // Check if connection is secure.
         if (!connection.getSession().isStartTls()) {
-            connection.write("538 5.7.1 Connection not secured");
+            connection.write(SmtpResponses.CONNECTION_NOT_SECURED_538);
             return false;
         }
 
@@ -71,8 +73,8 @@ public class ServerAuth extends ServerProcessor {
             // Get available users for authentication.
             if (!connection.getSession().getUsername().isEmpty()) {
                 // Check if users are enabled in configuration and try and authenticate if so.
-                if (Config.getServer().isDovecotAuth()) {
-                    try (DovecotSaslAuthNative dovecotSaslAuthNative = new DovecotSaslAuthNative()) {
+                if (Config.getServer().getDovecot().getBooleanProperty("auth")) {
+                    try (DovecotSaslAuthNative dovecotSaslAuthNative = new DovecotSaslAuthNative(Path.of(Config.getServer().getDovecot().getStringProperty("authSocket")))) {
                         // Attempt to authenticate against Dovecot.
                         if (dovecotSaslAuthNative.authenticate(
                                 authVerb.getType(),
@@ -84,10 +86,10 @@ public class ServerAuth extends ServerProcessor {
                                 connection.getSession().getFriendAddr()
                         )) {
                             connection.getSession().setAuth(true);
-                            connection.write("235 2.7.0 Authorized");
+                            connection.write(SmtpResponses.AUTH_SUCCESS_235);
                             return true;
                         } else {
-                            connection.write("535 5.7.1 Unauthorized");
+                            connection.write(SmtpResponses.AUTH_FAILED_535);
                             return false;
                         }
                     } catch (Exception e) {
@@ -98,17 +100,17 @@ public class ServerAuth extends ServerProcessor {
                     Optional<UserConfig> opt = connection.getUser(connection.getSession().getUsername());
                     if (opt.isPresent() && opt.get().getPass().equals(connection.getSession().getPassword())) {
                         connection.getSession().setAuth(true);
-                        connection.write("235 2.7.0 Authorized");
+                        connection.write(SmtpResponses.AUTH_SUCCESS_235);
                         return true;
                     } else {
-                        connection.write("535 5.7.1 Unauthorized");
+                        connection.write(SmtpResponses.AUTH_FAILED_535);
                         return false;
                     }
                 }
             }
         }
 
-        connection.write("504 5.7.4 Unrecognized authentication mechanism");
+        connection.write(SmtpResponses.UNRECOGNIZED_AUTH_504);
         return false;
     }
 
@@ -122,7 +124,7 @@ public class ServerAuth extends ServerProcessor {
         String auth;
 
         if (verb.getCount() == 2) {
-            connection.write("334 UGF5bG9hZDo"); // Payload:
+            connection.write(SmtpResponses.AUTH_PAYLOAD_334); // Payload:
 
             auth = connection.read();
             if (Extensions.isExtension(auth)) return; // Failsafe to catch unexpected commands.
@@ -150,18 +152,18 @@ public class ServerAuth extends ServerProcessor {
             user = verb.getPart(2);
             user = new String(Base64.decodeBase64(user));
             if (Extensions.isExtension(user)) return; // Failsafe to catch unexpected commands.
-            connection.write("334 UGFzc3dvcmQ6"); // Password:
+            connection.write(SmtpResponses.AUTH_PASSWORD_334); // Password:
 
             pass = connection.read();
             pass = new String(Base64.decodeBase64(pass));
             if (Extensions.isExtension(pass)) return; // Failsafe to catch unexpected commands.
         } else {
-            connection.write("334 VXNlcm5hbWU6"); // Username:
+            connection.write(SmtpResponses.AUTH_USERNAME_334); // Username:
             user = connection.read();
             user = new String(Base64.decodeBase64(user));
             if (Extensions.isExtension(user)) return; // Failsafe to catch unexpected commands.
 
-            connection.write("334 UGFzc3dvcmQ6"); // Password:
+            connection.write(SmtpResponses.AUTH_PASSWORD_334); // Password:
             pass = connection.read();
             pass = new String(Base64.decodeBase64(pass));
             if (Extensions.isExtension(pass)) return; // Failsafe to catch unexpected commands.

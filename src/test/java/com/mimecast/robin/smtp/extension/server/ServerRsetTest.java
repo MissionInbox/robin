@@ -1,6 +1,7 @@
 package com.mimecast.robin.smtp.extension.server;
 
 import com.mimecast.robin.main.Foundation;
+import com.mimecast.robin.smtp.SmtpResponses;
 import com.mimecast.robin.smtp.connection.ConnectionMock;
 import com.mimecast.robin.smtp.verb.Verb;
 import org.junit.jupiter.api.BeforeAll;
@@ -16,7 +17,7 @@ class ServerRsetTest {
 
     @BeforeAll
     static void before() throws ConfigurationException {
-        Foundation.init("src/test/resources/");
+        Foundation.init("src/test/resources/cfg/");
     }
 
     @Test
@@ -32,6 +33,6 @@ class ServerRsetTest {
         assertTrue(process);
 
         connection.parseLines();
-        assertEquals("250 2.1.5 All clear\r\n", connection.getLine(1));
+        assertEquals(SmtpResponses.ALL_CLEAR_250 + "\r\n", connection.getLine(1));
     }
 }
