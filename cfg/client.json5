@@ -41,29 +41,5 @@
   assertions: {
     protocolFails: true, // If protocol assertion fails, fail test/exit gracefully.
     verifyFails: true // If external verify checks fail, fail test/exit gracefully.
-  },
-
-  // Predefined delivery routes to use instead of MX and port.
-  routes: [
-    {
-      name: "loc",
-      mx: ["localhost"],
-      port: 25
-    },
-    {
-      name: "locsub",
-      mx: ["localhost"],
-      port: 587
-    },
-    {
-      name: "stg",
-      mx: ["mail.missioninbox.tech"],
-      port: 25
-    },
-    {
-      name: "stgsub",
-      mx: ["mail.missioninbox.tech"],
-      port: 587
-    }
-  ]
+  }
 }
