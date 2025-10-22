@@ -40,11 +40,11 @@ fi
 cp src/test/resources/keystore.jks /usr/local/robin/keystore.jks
 
 # Copy configuration files (avoid creating /usr/local/robin/cfg/cfg)
-if [ -d cfg ]; then
-  echo "[5/6] Copying configuration files..."
-  cp -r cfg/* /usr/local/robin/cfg/
+if [ -d cfg-prod ]; then
+  echo "[5/6] Copying production configuration files..."
+  cp -r cfg-prod/* /usr/local/robin/cfg/
 else
-  echo "[WARN] cfg directory not found; proceeding without configuration." >&2
+  echo "[WARN] cfg-prod directory not found; proceeding without production configuration." >&2
 fi
 
 # Install control script
