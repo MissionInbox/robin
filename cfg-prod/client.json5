@@ -1,0 +1,45 @@
+{
+  $schema: "../src/main/resources/schema/client.schema.json",
+
+  // Default MX list and port to attempt to deliver the email to.
+  mx: [
+    "127.0.0.1"
+  ],
+  port: 25,
+
+  // Default TLS enablement.
+  tls: true,
+
+  // Default supported protocols and ciphers.
+  protocols: [
+    "TLSv1.2", "TLSv1.3"
+  ],
+  ciphers: [
+    // Strong ciphers only, no RC4, 3DES, MD5 or SHA1.
+    // TLS 1.3
+    "TLS_AES_256_GCM_SHA384",
+    "TLS_CHACHA20_POLY1305_SHA256",
+    "TLS_AES_128_GCM_SHA256",
+    "TLS_AES_128_CCM_8_SHA256",
+    // TLS 1.2
+    "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+    "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+  ],
+
+  // Default EHLO to use.
+  ehlo: "mail.missioninbox.tech",
+
+  // Default sender and recipients.
+  mail: "robin@missioninbox.tech",
+  rcpt: [
+    "robin@example.com"
+  ],
+
+  // Default asserting configuration.
+  assertions: {
+    protocolFails: true, // If protocol assertion fails, fail test/exit gracefully.
+    verifyFails: true // If external verify checks fail, fail test/exit gracefully.
+  }
+}

@@ -1,0 +1,23 @@
+[
+  // Predefined delivery routes to use instead of MX and port.
+  {
+    name: "loc",
+    mx: ["localhost"],
+    port: 25
+  },
+  {
+    name: "locsub",
+    mx: ["localhost"],
+    port: 587
+  },
+  {
+    name: "stg",
+    mx: ["mail.missioninbox.tech"],
+    port: 25
+  },
+  {
+    name: "stgsub",
+    mx: ["mail.missioninbox.tech"],
+    port: 587
+  }
+]
