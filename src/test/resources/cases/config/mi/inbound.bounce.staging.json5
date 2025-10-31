@@ -8,28 +8,30 @@
   delay: 5,
 
   // Preconfigured route to use instead of MX and port.
-  route: "stgsub",
-
-  // Authenticate user.
-  auth: true,
-  user: "lin@beta.obmengine.com",
-  pass: "{$smtpAuthPassword}",
+  route: "stg",
 
   // Email envelopes.
   envelopes: [
     // Envelope one.
     {
+      // Custom headers to append to the email.
+      headers: {
+        "From": "<transilvlad@gmail.com>",
+        "In-Reply-To": "<{$originalMsgId}>" // Magic variable from the session.
+      },
+      prependHeaders: true,
+
       // Sender and recipients.
-      mail: "lin@beta.obmengine.com",
+      mail: "",
       rcpt: [
-        "transilvlad@gmail.com"
+        "hong@missioninbox.com"
       ],
 
       // Email eml file to transmit.
-      file: "src/test/resources/cases/sources/pangrams.eml",
+      file: "src/test/resources/cases/sources/ooo.eml",
 
       // Assertions to run against the envelope.
-      assertionsX: {
+      assertions: {
 
         // Protocol assertions.
         // Check SMTP responses match regular expressions.
@@ -43,12 +45,11 @@
   ],
 
   // Assertions to run against the connection.
-  assertionsX: {
+  assertions: {
     // Protocol assertions.
     // Check SMTP responses match regular expressions.
     protocol: [
-      ["AUTH", "235 2.7.0 Authentication successful"],
-      ["EHLO", "^250-mail.missioninbox.tech"],
+      ["EHLO", "^250-meadoworks.outboxment.com"],
       ["SHLO", "250-AUTH PLAIN LOGIN"],
       ["SMTP", "^220"],
       ["QUIT"]

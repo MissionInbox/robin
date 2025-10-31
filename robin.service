@@ -1,0 +1,32 @@
+[Unit]
+Description=Robin MTA Service
+After=network.target
+StartLimitIntervalSec=400
+StartLimitBurst=5
+
+[Service]
+Type=forking
+User=vmail
+Group=vmail
+WorkingDirectory=/usr/local/robin
+# Ensure we have a predictable path
+Environment=ROBIN_HOME=/usr/local/robin
+Environment=JAVA_BIN=java
+# Optional extra JVM opts can be set via environment drop-in (systemctl edit robin)
+ExecStart=/usr/local/robin/robin.sh start
+ExecStop=/usr/local/robin/robin.sh stop
+ExecReload=/usr/local/robin/robin.sh restart
+PIDFile=/usr/local/robin/robin.pid
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+# Logs are written by robin to /var/log or as configured in cfg/log4j2.xml
+# Uncomment hardening options after validating runtime access needs
+# NoNewPrivileges=true
+# PrivateTmp=true
+# ProtectSystem=strict
+# ProtectHome=true
+# ReadWritePaths=/usr/local/robin
+
+[Install]
+WantedBy=multi-user.target
